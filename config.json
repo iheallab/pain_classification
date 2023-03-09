@@ -35,5 +35,5 @@
 	"cnn_blocks": 6,
 	"best_model": false,
 	"checkpoint_path": "None",
-	"data_path": "/home/jsenadesouza/DA-healthy2patient/results/outcomes/dataset/t900_INTELLIGENT_ADAPT_PAIN_15wd_15drop_painprev.npz"
+	"data_path": "/home/jsenadesouza/DA-healthy2patient/results/outcomes/dataset/t900_INTELLIGENT_ADAPT_PAIN_15wd_15drop_painprev_timestamp.npz"
 }

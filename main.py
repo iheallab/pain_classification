@@ -32,7 +32,8 @@ def train(model, config, device, train_loader, train_labels, use_cuda, n_classes
 
 
     # Set the loss
-    class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(train_labels), y=train_labels)
+    labels = [int(x.split("_")[0]) for x in train_labels]
+    class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(labels), y=labels)
     class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
     loss = torch.nn.NLLLoss(weight=class_weights)
 
@@ -55,19 +56,20 @@ def train(model, config, device, train_loader, train_labels, use_cuda, n_classes
         model.train(True)
         start = time()
         loss_vals = []
-        for minibatch, label in train_loader:
+        for minibatch, labels, _ in train_loader:
             with torch.autocast(device_type='cuda', dtype=torch.float16):
                 minibatch["acc"] = minibatch["acc"].to(device)
                 minibatch["clin"] = minibatch["clin"].to(device)
-                label = label.to(device)
+                labels = labels.to(device)
+
                 # Zero the gradients
                 optim.zero_grad()
 
                 # Forward pass
-                res = model(minibatch)
+                res, _ = model(minibatch)
 
                 # Compute loss
-                criterion = loss(res, label)
+                criterion = loss(res, labels)
 
                 # Collect for recoding and plotting
                 batch_loss = criterion.item()
@@ -119,6 +121,7 @@ def train(model, config, device, train_loader, train_labels, use_cuda, n_classes
     torch.save(model.state_dict(), checkpoint_prefix + '_final.pth')
 
 
+
 def test(config, device, device_id, test_loader, folder_idx, n_classes):
     checkpoint_prefix = join(utils.create_output_dir('out'), utils.get_stamp_from_log())
 
@@ -132,20 +135,24 @@ def test(config, device, device_id, test_loader, folder_idx, n_classes):
             model.load_state_dict(torch.load(checkpoint_prefix + "_best.pth", map_location=device_id))
         else:
             model.load_state_dict(torch.load(checkpoint_prefix + "_final.pth", map_location=device_id))
+
     # Set to eval mode
     model.eval()
 
     logging.info("Start testing")
     predicted = []
     ground_truth = []
-
+    embeddings = []
+    emb_labels = []
     with torch.no_grad():
-        for minibatch, label in test_loader:
+        for minibatch, label, dates in test_loader:
             # Forward pass
             minibatch["acc"] = minibatch["acc"].to(device)
             minibatch["clin"] = minibatch["clin"].to(device)
             label = label.to(device)
-            res = model(minibatch)
+            res, feat = model(minibatch)
+            embeddings.extend(feat.cpu().numpy())
+            emb_labels.extend(dates)
 
             # Evaluate and append
             pred_label = torch.argmax(res, dim=1)
@@ -164,7 +171,7 @@ def test(config, device, device_id, test_loader, folder_idx, n_classes):
         return metrics
     metrics = plot_metrics(ground_truth, predicted, n_classes)
 
-    return metrics
+    return metrics, embeddings, emb_labels
 
 
 if __name__ == "__main__":
@@ -183,8 +190,9 @@ if __name__ == "__main__":
     logging.info("Start train data preparation")
     # read data and get dataset and dataloader
     # split the data into train, val and test sets
-    X, y, y_target, y_col_names = load_data(config.get("data_path"), clin_variable_target="pain_score_class")
-
+    X, y, y_target, y_col_names = load_data(config.get("data_path"), clin_variable_target="pain_score")
+    #gambiarra
+    y_col_names.insert(-1, "date")
     col_idx_target = y_col_names.index("pain_score")
     col_idx_prevpain = y_col_names.index('pain_score_prev')
 
@@ -223,8 +231,8 @@ if __name__ == "__main__":
     for folder_idx in range(num_folders):
         clin_data = np.expand_dims(prev_pain, axis=1)
 
-        train_idx = folders[folder_idx][0]
-        test_idx = folders[folder_idx][1]
+        test_idx = folders[folder_idx][0]
+        train_idx = folders[folder_idx][1]
         train_acc_data, train_labels, test_acc_data, test_labels = X[train_idx], yy_t[train_idx], X[test_idx], yy_t[test_idx]
         train_clin_data, test_clin_data = clin_data[train_idx], clin_data[test_idx]
         train_data = {"acc": train_acc_data, "clin": train_clin_data}
@@ -241,7 +249,13 @@ if __name__ == "__main__":
         logging.info("Train data shape: {}".format(train_data["clin"].shape))
         if config.get("checkpoint_path") == "None":
             train(model, config, device, train_loader, train_labels, n_classes, use_cuda)
-        metrics = test(config, device, device_id, test_loader, folder_idx, n_classes)
+        metrics, test_embbedings, test_emb_labels = test(config, device, device_id, test_loader, folder_idx, n_classes)
+        _, train_embbedings, train_emb_labels = test(config, device, device_id, train_loader, folder_idx, n_classes)
+        np.savez_compressed(f"/home/jsenadesouza/DA-healthy2patient/results/embeddings_{experiment}_{folder_idx}.npz",
+                            train_embbedings=train_embbedings,
+                            train_emb_labels=train_emb_labels,
+                            test_embbedings=test_embbedings,
+                            test_emb_labels=test_emb_labels)
 
         logging.info("Data preparation completed")
         cum_acc.append(metrics['accuracy'])

@@ -17,10 +17,12 @@ class IMU_CNN(nn.Module):
             nn.LayerNorm(dim),
             nn.Linear(dim,  dim//2),
             nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(dim//2,  num_classes)
+            nn.Dropout(0.1)
         )
-        self.log_softmax = nn.LogSoftmax(dim=1)
+        self.log_softmax = nn.Sequential(
+            nn.Linear(dim // 2, num_classes),
+            nn.LogSoftmax(dim=1)
+        )
 
         # init
         for p in self.parameters():
@@ -33,6 +35,6 @@ class IMU_CNN(nn.Module):
         x = self.input_proj(inp1)
         x = torch.mean(x, dim=1)
         x = torch.cat([x, inp2], dim=1)
-        x = self.imu_head(x)
-        x = self.log_softmax(x)
-        return x
+        feat = self.imu_head(x)
+        x = self.log_softmax(feat)
+        return x, feat

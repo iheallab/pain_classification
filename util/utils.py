@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from multiprocessing.dummy import Pool
 from torch.utils.data import DataLoader, WeightedRandomSampler
-from utils.data import SensorDataset
+from util.data import SensorDataset
 from sklearn.metrics import roc_curve
 import logging
 import logging.config
@@ -286,6 +286,7 @@ def split_folders(y, experiment):
 
 
 def get_labels(X, y, y_target, prev_pain, experiment):
+    yy_new = []
     if experiment == "zero":
         print(np.unique(y_target, return_counts=True))
         prev_pain_t = np.array([0 if x == 0 else 1 for x in prev_pain])
@@ -295,15 +296,24 @@ def get_labels(X, y, y_target, prev_pain, experiment):
     elif experiment == "mildxsevere":
         idx = np.where(y_target != 0)
         print(np.unique(y_target[idx], return_counts=True))
+        temp = y[idx]
+        y_date = []
+        for yy in temp:
+            y_date.append(f"{yy[-2]}_{yy[-1]}")
+
         prev_pain_t = np.array([0 if x <= 5 else 1 for x in prev_pain[idx]])
         yy_t = np.array([0 if x <= 5 else 1 for x in y_target[idx]])
+
+        for yy, date in zip(yy_t, y_date):
+            yy_new. append(f"{yy}_{date}")
+        yy_new = np.asarray(yy_new)
         X = np.asarray(X[idx])
         y = np.asarray(y[idx])
         num_folders = 5
         n_classes = 2
     else:
         sys.exit("Experiment not supported")
-    return X, y, yy_t, prev_pain_t, num_folders, n_classes
+    return X, y, yy_new, prev_pain_t, num_folders, n_classes
 
 
 def Find_Optimal_Cutoff(target, predicted):  # Youden index
