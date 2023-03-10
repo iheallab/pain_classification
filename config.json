@@ -29,7 +29,7 @@
 	"n_epochs": 50,
 
 
-	"experiment": "mildxsevere",
+	"experiment": "zero",
 	"clinical_data_dim": 1,
 	"sample_size": 9000,
 	"cnn_blocks": 6,

@@ -223,8 +223,9 @@ if __name__ == "__main__":
     for folder_idx in range(num_folders):
         clin_data = np.expand_dims(prev_pain, axis=1)
 
-        train_idx = folders[folder_idx][0]
-        test_idx = folders[folder_idx][1]
+        test_idx = folders[folder_idx][0]
+        train_idx = folders[folder_idx][1]
+
         train_acc_data, train_labels, test_acc_data, test_labels = X[train_idx], yy_t[train_idx], X[test_idx], yy_t[test_idx]
         train_clin_data, test_clin_data = clin_data[train_idx], clin_data[test_idx]
         train_data = {"acc": train_acc_data, "clin": train_clin_data}

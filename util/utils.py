@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from multiprocessing.dummy import Pool
 from torch.utils.data import DataLoader, WeightedRandomSampler
-from utils.data import SensorDataset
+from util.data import SensorDataset
 from sklearn.metrics import roc_curve
 import logging
 import logging.config
